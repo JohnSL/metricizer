@@ -1,0 +1,59 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "openocd",
+            "cwd": "${workspaceRoot}",
+            "executable": "./target/thumbv7m-none-eabi/debug/rusty-blink",
+            "name": "Debug (OpenOCD)",
+            "device": "STM32F103RBT6",
+            "configFiles": [
+                "interface/stlink-v2-1.cfg",
+                "target/stm32f1x.cfg"
+            ],
+            "runToMain": true
+        }
+        // {
+        //     "type": "lldb",
+        //     "request": "launch",
+        //     "name": "Debug executable 'rusty-blink'",
+        //     "cargo": {
+        //         "args": [
+        //             "build",
+        //             "--bin=rusty-blink",
+        //             "--package=rusty-blink"
+        //         ],
+        //         "filter": {
+        //             "name": "rusty-blink",
+        //             "kind": "bin"
+        //         }
+        //     },
+        //     "args": [],
+        //     "cwd": "${workspaceFolder}"
+        // },
+        // {
+        //     "type": "lldb",
+        //     "request": "launch",
+        //     "name": "Debug unit tests in executable 'rusty-blink'",
+        //     "cargo": {
+        //         "args": [
+        //             "test",
+        //             "--no-run",
+        //             "--bin=rusty-blink",
+        //             "--package=rusty-blink"
+        //         ],
+        //         "filter": {
+        //             "name": "rusty-blink",
+        //             "kind": "bin"
+        //         }
+        //     },
+        //     "args": [],
+        //     "cwd": "${workspaceFolder}"
+        // }
+    ]
+}
