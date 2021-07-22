@@ -1,103 +1,144 @@
 // src/main.rs
 
-// std and main are not available for bare metal software
 #![no_std]
 #![no_main]
 
 use cortex_m_rt::entry; // The runtime
-use embedded_hal::digital::v2::InputPin;
-use embedded_hal::digital::v2::OutputPin; // the `set_high/low`function
-use stm32f1xx_hal::{delay::Delay, pac, prelude::*}; // STM32F1 specific functions
+
+use stm32f1xx_hal as hal;
+use hal::{delay::Delay, pac, prelude::*}; // STM32F1 specific functions+
 
 #[allow(unused_imports)]
 use panic_halt; // When a panic occurs, stop the microcontroller
 
-// This marks the entrypoint of our application. The cortex_m_rt creates some
-// startup code before this, but we don't need to worry about this
+use embedded_hal::digital::v2::{InputPin, OutputPin};
+use hal::gpio::{Input, OpenDrain, Output, PullUp};
+use hal::gpio::gpioa::{PA7, PA8, PA9};
+use hal::gpio::gpiob::{PB5, PB6, PB10};
+use hal::gpio::gpioc::{PC7};
+
+// keypad_struct!{
+//     struct MyKeypad {
+//         rows: (
+//             PB6<Input<PullUp>>,
+//             PB5<Input<PullUp>>,
+//             PB10<Input<PullUp>>,
+//             PA9<Input<PullUp>>,
+//         ),
+//         columns: (
+//             PC7<Output<OpenDrain>>,
+//             PA7<Output<OpenDrain>>,
+//             PA8<Output<OpenDrain>>,
+//         ),
+//     }
+// }
+
 #[entry]
 fn main() -> ! {
-    // Get handles to the hardware objects. These functions can only be called
-    // once, so that the borrowchecker can ensure you don't reconfigure
-    // something by accident.
     let dp = pac::Peripherals::take().unwrap();
     let cp = cortex_m::Peripherals::take().unwrap();
 
-    // GPIO pins on the STM32F1 must be driven by the APB2 peripheral clock.
-    // This must be enabled first. The HAL provides some abstractions for
-    // us: First get a handle to the RCC peripheral:
     let mut rcc = dp.RCC.constrain();
 
-    // Now we have access to the RCC's registers. The GPIOC can be enabled in
-    // RCC_APB2ENR (Prog. Ref. Manual 8.3.7), therefore we must pass this
-    // register to the `split` function.
     let mut gpioa = dp.GPIOA.split(&mut rcc.apb2);
-
-    // This gives us an exclusive handle to the GPIOC peripheral. To get the
-    // handle to a single pin, we need to configure the pin first. Pin C13
-    // is usually connected to the Bluepills onboard LED.
-    // let mut led = gpioa.pa5.into_push_pull_output(&mut gpioa.crl);
+    let mut gpiob = dp.GPIOB.split(&mut rcc.apb2);
     let mut gpioc = dp.GPIOC.split(&mut rcc.apb2);
-    // let button = gpioc.pc13.into_pull_up_input(&mut gpioc.crh);
 
-    let mut io = IO {
-        led: gpioa.pa5.into_push_pull_output(&mut gpioa.crl),
-        button: gpioc.pc13.into_pull_up_input(&mut gpioc.crh)
-    };
-
-    // Now we need a delay object. The delay is of course depending on the clock
-    // frequency of the microcontroller, so we need to fix the frequency
-    // first. The system frequency is set via the FLASH_ACR register, so we
-    // need to get a handle to the FLASH peripheral first:
     let mut flash = dp.FLASH.constrain();
 
-    // Now we can set the controllers frequency to 8 MHz:
     let clocks = rcc.cfgr.sysclk(8.mhz()).freeze(&mut flash.acr);
 
-    // The `clocks` handle ensures that the clocks are now configured and gives
-    // the `Delay::new` function access to the configured frequency. With
-    // this information it can later calculate how many cycles it has to
-    // wait. The function also consumes the System Timer peripheral, so that no
-    // other function can access it. Otherwise the timer could be reset during a
-    // delay.
     let mut delay = Delay::new(cp.SYST, clocks);
 
+    let mut keypad = MyKeypad::new((
+            gpiob.pb6.into_pull_up_input(&mut gpiob.crl),
+            gpiob.pb5.into_pull_up_input(&mut gpiob.crl),
+            gpiob.pb10.into_pull_up_input(&mut gpiob.crh),
+            gpioa.pa9.into_pull_up_input(&mut gpioa.crh)
+        ),(
+            gpioc.pc7.into_open_drain_output(&mut gpioc.crl),
+            gpioa.pa7.into_open_drain_output(&mut gpioa.crl),
+            gpioa.pa8.into_open_drain_output(&mut gpioa.crh)
+        )
+    );
+
     loop {
-        io.on();
-        delay.delay_ms(get_delay(io.pushed()));
-
-        io.off();
-        delay.delay_ms(get_delay(io.pushed()));
-
         let f: f32 = 1.2;
+        let v = keypad.read();
         delay.delay_ms(f as u16);
     }
 }
 
-fn get_delay(pressed: bool) -> u16 {
-    if pressed {
-        500_u16
-    } else {
-        100_u16
-    }
+// Pin      Keypad              Keypad  Pin
+// ----     ------              ------  ---
+// PA7      C2                  C1      PC7
+// PB6      R1                  C2      PA7
+// PC7      C1                  C3      PA8
+// PA9      R4                  R1      PB6
+// PA8      C3                  R2      PB5
+// PB10     R3                  R3      PB10
+// PB5      R2                  R4      PA9
+
+pub type KeypadRows = (
+	PB6<Input<PullUp>>,
+	PB5<Input<PullUp>>,
+	PB10<Input<PullUp>>,
+	PA9<Input<PullUp>>,
+);
+
+pub type KeypadColumns = (
+	PC7<Output<OpenDrain>>,
+	PA7<Output<OpenDrain>>,
+	PA8<Output<OpenDrain>>,
+);
+
+pub struct MyKeypad {
+	rows: KeypadRows,
+	columns: KeypadColumns,
 }
 
-use stm32f1xx_hal::{gpio, gpio::gpioa, gpio::gpioc};
+impl MyKeypad {
+	pub fn new(rows: KeypadRows, columns: KeypadColumns) -> Self {
+		Self { rows, columns }
+	}
 
-struct IO {
-    led: gpioa::PA5<gpio::Output<gpio::PushPull>>,
-    button: gpioc::PC13<gpio::Input<gpio::PullUp>>
-}
-
-impl IO {
-    fn on(&mut self) {
-        self.led.set_high().unwrap();
-    }
-
-    fn off(&mut self) {
-        self.led.set_low().unwrap();
-    }
-
-    fn pushed(&mut self) -> bool {
-        self.button.is_high().unwrap()
-    }
+	fn read_column(&self) -> u16 {
+		let mut res = 0;
+		
+		if self.rows.0.is_low().unwrap() {
+			res |= 1 << 0;
+		}
+		if self.rows.1.is_low().unwrap() {
+			res |= 1 << 1;
+		}
+		if self.rows.2.is_low().unwrap() {
+			res |= 1 << 2;
+		}
+		if self.rows.3.is_low().unwrap() {
+			res |= 1 << 3;
+		}
+		
+		res
+	}
+	
+	pub fn read(&mut self) -> u16 {
+		let mut res = 0;
+		
+		self.columns.0.set_low().unwrap();
+		// Add delay here?
+		res |= self.read_column() << 0;
+		self.columns.0.set_high().unwrap();
+		
+		self.columns.1.set_low().unwrap();
+		// Add delay here?
+		res |= self.read_column() << 4;
+		self.columns.1.set_high().unwrap();
+		
+		self.columns.2.set_low().unwrap();
+		// Add delay here?
+		res |= self.read_column() << 8;
+		self.columns.2.set_high().unwrap();
+		
+		res
+	}
 }

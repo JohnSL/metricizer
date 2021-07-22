@@ -10,13 +10,16 @@ opt-level = 'z' # turn on maximum optimizations. We only have 64kB
 lto = true      # Link-time-optimizations for further size reduction
 
 [dependencies]
-cortex-m = "^0.6.3"      # Access to the generic ARM peripherals
+cortex-m = "^0.7.3"      # Access to the generic ARM peripherals
 cortex-m-rt = "^0.6.12"  # Startup code for the ARM Core
+# cortex-m-rt = { version = "^0.6.12", features = ["device"] }
 embedded-hal = "^0.2.4"  # Access to generic embedded functions (`set_high`)
 panic-halt = "^0.2.0"    # Panic handler
+# keypad = { path = "../keypad", version = "^0.1.4" }
+# keypad = "^0.1.4"
 
 # Access to the stm32f103 HAL.
 [dependencies.stm32f1xx-hal]
 # Bluepill contains a 64kB flash variant which is called "medium density"
-features = ["stm32f103", "rt", "medium"]
-version = "^0.6.1"
+features = ["stm32f103", "rt"]
+version = "^0.7.0"
