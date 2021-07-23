@@ -92,9 +92,10 @@ impl MyKeypad {
 		Self { rows, columns }
 	}
 
-	fn read_column(&self) -> u16 {
+	fn read_column(&self, delay: &mut Delay) -> u16 {
 		let mut res = 0;
 		
+        delay.delay_ms(1u16);
         if self.rows.0.is_low().unwrap() {
 			res |= 1 << 0;
 		}
@@ -115,18 +116,15 @@ impl MyKeypad {
 		let mut res = 0;
 		
         self.columns.0.set_low().unwrap();
-        delay.delay_ms(10u16);
-		res |= self.read_column() << 0;
+		res |= self.read_column(delay) << 0;
 		self.columns.0.set_high().unwrap();
 		
 		self.columns.1.set_low().unwrap();
-        delay.delay_ms(10u16);
-		res |= self.read_column() << 4;
+		res |= self.read_column(delay) << 4;
 		self.columns.1.set_high().unwrap();
 		
 		self.columns.2.set_low().unwrap();
-        delay.delay_ms(10u16);
-		res |= self.read_column() << 8;
+		res |= self.read_column(delay) << 8;
 		self.columns.2.set_high().unwrap();
 		
 		res
