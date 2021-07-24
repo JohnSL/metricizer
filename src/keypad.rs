@@ -4,6 +4,15 @@ use hal::gpio::gpioa::{PA7, PA8, PA9};
 use hal::gpio::gpiob::{PB5, PB6, PB10};
 use hal::gpio::gpioc::{PC7};
 
+// Pin      Keypad              Keypad  Pin
+// ----     ------              ------  ---
+// PA7      R2                  R1      PB10
+// PB6      R3                  R2      PA7
+// PC7      C3                  R3      PB6
+// PA9      R4                  R4      PA9
+// PA8      C1                  C1      PA8
+// PB10     R1                  C2      PB5
+// PB5      C2                  C3      PC7
 pub type KeypadRows = (
     PB10<Input<PullUp>>,
     PA7<Input<PullUp>>,

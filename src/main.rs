@@ -12,7 +12,8 @@ mod keypad;
 use keypad::keypad::MyKeypad;
 
 #[allow(unused_imports)]
-use panic_halt; // When a panic occurs, stop the microcontroller
+// use panic_halt; // When a panic occurs, stop the microcontroller
+use panic_semihosting;
 
 #[entry]
 fn main() -> ! {
