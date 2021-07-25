@@ -13,37 +13,45 @@ pub mod display {
         I: embedded_hal::blocking::i2c::Write,
     {
         i2c: I,
+        show_function: u8,
+        show_control: u8,
+        show_mode: u8,
     }
 
     impl<I> Lcd<I>
     where
-        I: i2c::Write,
-    {
+        I: i2c::Write
+        {
         pub fn new(i2c: I) -> Self {
-            Lcd { i2c: i2c }
+            Lcd {
+                i2c: i2c,
+                show_function: LCD_4BITMODE | LCD_2LINE | LCD_5X8_DOTS,
+                show_control: LCD_DISPLAYON | LCD_CURSORON | LCD_BLINKON,
+                show_mode: LCD_ENTRYLEFT | LCD_ENTRYSHIFTDECREMENT }
         }
 
         //
         // Initialize the display for the first time after power up
         //
         pub fn init(&mut self, delay: &mut Delay)  -> Result<(), <I as i2c::Write>::Error> {
-            delay.delay_ms(50_u16); // Need to wait at least 40ms before sending commands
+            delay.delay_ms(80_u16); // Need to wait at least 40ms before sending commands
 
             // Send the initial command sequence according to the HD44780 datasheet
-            self.command(LCD_FUNCTIONSET | LCD_2LINE, delay)?;
+            self.command(LCD_FUNCTIONSET | self.show_function, delay)?;
             delay.delay_ms(5_u16);
 
-            self.command(LCD_FUNCTIONSET | LCD_2LINE, delay)?;
+            self.command(LCD_FUNCTIONSET | self.show_function, delay)?;
             delay.delay_ms(5_u16);
 
-            self.command(LCD_FUNCTIONSET | LCD_2LINE, delay)?;
+            self.command(LCD_FUNCTIONSET | self.show_function, delay)?;
 
             // Turn on the display wit no cursor or blinking
-            self.display_on(delay)?;
+            self.command(LCD_DISPLAYCONTROL | self.show_control, delay)?;
+            // self.display_on(delay)?;
 
             self.clear(delay)?;
 
-            self.command(LCD_ENTRYMODESET | LCD_ENTRYLEFT | LCD_ENTRYSHIFTDECREMENT, delay)?;
+            self.command(LCD_ENTRYMODESET | self.show_mode, delay)?;
 
             // Initialize the backlight
             self.set_reg(REG_MODE1, 0)?;
@@ -66,25 +74,28 @@ pub mod display {
 
         pub fn set_cursor(&mut self, x: u8, y: u8, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
             let col = if y == 0_u8 { x | 0x80 } else { x | 0xC0 };
-            self.send(0x80, delay)?;
-            self.send(col, delay)
+            self.send_two(0x80, col, delay)
         }
 
-        // Initially turns on the display and sets the backlight to "white"
-        fn display_on(&mut self, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
-            let command = LCD_DISPLAYON | LCD_CURSOROFF | LCD_BLINKOFF;
-            self.command(LCD_DISPLAYCONTROL | command, delay)
+        pub fn set_blink(&mut self, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
+            self.show_control |= LCD_BLINKON;
+            self.command(LCD_DISPLAYCONTROL | self.show_function, delay)
         }
+
+        // pub fn cursor_on(&mut self, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
+        // }
 
         // Send a command to the LCD display
         fn command(&mut self, value: u8, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
-            self.send(0x80, delay)?;
-            let result = self.send(value, delay);
-            result
+            self.send_two(0x80, value, delay)
         }
 
-        fn send(&mut self, byte: u8, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
-            let result = self.i2c.write(LCD_ADDRESS, &[byte]);
+        fn send_char(&mut self, char: char, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
+            self.send_two(0x40, char as u8, delay)
+        }
+
+        fn send_two(&mut self, byte1: u8, byte2: u8, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
+            let result = self.i2c.write(LCD_ADDRESS, &[byte1, byte2]);
             delay.delay_ms(5_u16);
             result
         }
@@ -105,8 +116,6 @@ pub mod display {
     const LCD_ADDRESS: u8 = 0x7c >> 1;
     const RGB_ADDRESS: u8 = 0xc0 >> 1;
 
-    const LCD_2LINE: u8 = 0x08;
-
     // Commands
     const LCD_CLEARDISPLAY: u8 = 0x01;
     const LCD_ENTRYMODESET: u8 = 0x04;
@@ -116,15 +125,21 @@ pub mod display {
     // Flags for display on/off control
     const LCD_DISPLAYON: u8 = 0x04;
     // const LCD_DISPLAYOFF: u8 = 0x00;
-    // const LCD_CURSORON: u8 = 0x02;
+    const LCD_CURSORON: u8 = 0x02;
     const LCD_CURSOROFF: u8 = 0x00;
-    // const LCD_BLINKON: u8 = 0x01;
+    const LCD_BLINKON: u8 = 0x01;
     const LCD_BLINKOFF: u8 = 0x00;
 
+    const LCD_8BITMODE: u8 = 0x10;
+    const LCD_4BITMODE: u8 = 0x00;
+    const LCD_2LINE: u8 = 0x08;
+    const LCD_1LINE: u8 = 0x00;
+    const LCD_5X8_DOTS: u8 = 0x00;
+        
     // Display entry mode
-    const LCD_ENTRYRIGHT: u8 = 0x00;
+    // const LCD_ENTRYRIGHT: u8 = 0x00;
     const LCD_ENTRYLEFT: u8 = 0x02;
-    const LCD_ENTRYSHIFTINCREMENT: u8 = 0x01;
+    // const LCD_ENTRYSHIFTINCREMENT: u8 = 0x01;
     const LCD_ENTRYSHIFTDECREMENT: u8 = 0x00;
     
     
