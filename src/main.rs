@@ -77,6 +77,7 @@ fn main() -> ! {
 
     let mut lcd = Lcd::new(i2c_bus);
     lcd.init(&mut delay);
+    lcd.set_cursor(0, 0, &mut delay);
 
     loop {
         let f: f32 = 1.2;
