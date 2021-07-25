@@ -1,5 +1,5 @@
 pub mod display {
-    use core::u8;
+    use core::{fmt::Display, u8};
 
     use hal::{
         delay::Delay,
@@ -14,8 +14,32 @@ pub mod display {
     {
         i2c: I,
         show_function: u8,
-        show_control: u8,
         show_mode: u8,
+        control: DisplayControl,
+    }
+
+    struct DisplayControl {
+        control: u8,
+    }
+
+    impl DisplayControl {
+        pub fn new() -> DisplayControl {
+            DisplayControl { control: 0 }
+        }
+
+        pub fn set(&mut self, value: ControlOptions) -> &mut Self {
+            self.control |= value as u8;
+            self
+        }
+
+        pub fn clear(&mut self, value: ControlOptions) -> &mut Self {
+            self.control &= !(value as u8);
+            self
+        }
+
+        pub fn value(&mut self) -> u8 {
+            self.control
+        }
     }
 
     impl<I> Lcd<I>
@@ -23,11 +47,13 @@ pub mod display {
         I: i2c::Write
         {
         pub fn new(i2c: I) -> Self {
-            Lcd {
+            let lcd = Lcd {
                 i2c: i2c,
                 show_function: LCD_4BITMODE | LCD_2LINE | LCD_5X8_DOTS,
-                show_control: LCD_DISPLAYON | LCD_CURSORON | LCD_BLINKON,
-                show_mode: LCD_ENTRYLEFT | LCD_ENTRYSHIFTDECREMENT }
+                show_mode: LCD_ENTRYLEFT | LCD_ENTRYSHIFTDECREMENT,
+                control: DisplayControl::new()
+            };
+            lcd
         }
 
         //
@@ -46,8 +72,8 @@ pub mod display {
             self.command(LCD_FUNCTIONSET | self.show_function, delay)?;
 
             // Turn on the display wit no cursor or blinking
-            self.command(LCD_DISPLAYCONTROL | self.show_control, delay)?;
-            // self.display_on(delay)?;
+            self.control.set(ControlOptions::DisplayOn);
+            self.update_display(delay)?;
 
             self.clear(delay)?;
 
@@ -63,35 +89,37 @@ pub mod display {
             self.set_rgb(255, 255, 255)
         }
 
-        //
         // Clear the display
-        //
         pub fn clear(&mut self, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
             let result = self.command(LCD_CLEARDISPLAY, delay);
             delay.delay_ms(2_u32);
             result
         }
 
-        pub fn set_cursor(&mut self, x: u8, y: u8, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
+        // Set the position of the cursor
+        pub fn cursor_position(&mut self, x: u8, y: u8, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
             let col = if y == 0_u8 { x | 0x80 } else { x | 0xC0 };
             self.send_two(0x80, col, delay)
         }
 
-        pub fn set_blink(&mut self, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
-            self.show_control |= LCD_BLINKON;
-            self.command(LCD_DISPLAYCONTROL | self.show_function, delay)
+        // Turns on the cursor, which is a non-blinking _
+        pub fn cursor_on(&mut self, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
+            self.control.set(ControlOptions::CursorOn);
+            self.update_display(delay)
         }
 
-        // pub fn cursor_on(&mut self, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
-        // }
+        pub fn blink_on(&mut self, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
+            self.control.set(ControlOptions::BlinkOn);
+            self.update_display(delay)
+        }
+
+        pub fn send_char(&mut self, char: char, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
+            self.send_two(0x40, char as u8, delay)
+        }
 
         // Send a command to the LCD display
         fn command(&mut self, value: u8, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
             self.send_two(0x80, value, delay)
-        }
-
-        fn send_char(&mut self, char: char, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
-            self.send_two(0x40, char as u8, delay)
         }
 
         fn send_two(&mut self, byte1: u8, byte2: u8, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
@@ -110,6 +138,11 @@ pub mod display {
             self.set_reg(REG_GREEN, g)?;
             self.set_reg(REG_BLUE, b)
         }
+
+        fn update_display(&mut self, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
+            let value = self.control.value();
+            self.command(LCD_DISPLAYCONTROL | value, delay)
+        }
     }
 
     // Device I2c addresses
@@ -123,12 +156,13 @@ pub mod display {
     const LCD_FUNCTIONSET: u8 = 0x20;
 
     // Flags for display on/off control
-    const LCD_DISPLAYON: u8 = 0x04;
-    // const LCD_DISPLAYOFF: u8 = 0x00;
-    const LCD_CURSORON: u8 = 0x02;
-    const LCD_CURSOROFF: u8 = 0x00;
-    const LCD_BLINKON: u8 = 0x01;
-    const LCD_BLINKOFF: u8 = 0x00;
+    #[repr(u8)]
+    enum ControlOptions {
+        DisplayOn = 0x04,
+        Off = 0x0,
+        CursorOn = 0x02,
+        BlinkOn = 0x01,
+    }
 
     const LCD_8BITMODE: u8 = 0x10;
     const LCD_4BITMODE: u8 = 0x00;
@@ -148,7 +182,7 @@ pub mod display {
     // const RED: u8           = 1;
     // const GREEN: u8         = 2;
     // const BLUE: u8          = 3;
-    
+
     const REG_RED: u8       = 0x04;        // pwm2
     const REG_GREEN: u8     = 0x03;        // pwm1
     const REG_BLUE: u8      = 0x02;        // pwm0
