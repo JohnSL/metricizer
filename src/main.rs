@@ -78,10 +78,11 @@ fn main() -> ! {
     let mut lcd = Lcd::new(i2c_bus);
     lcd.init(&mut delay);
     lcd.cursor_on(&mut delay);
-    // lcd.blink_on(&mut delay);
     lcd.cursor_position(0, 0, &mut delay);
-    lcd.send_char('A', &mut delay);
-    // lcd.set_blink(&mut delay);
+    lcd.print(".01\"    0.254mm", &mut delay);
+    lcd.cursor_position(0, 1, &mut delay);
+    lcd.print(".01mm   .00039\"", &mut delay);
+    lcd.cursor_position(3, 0, &mut delay);
 
     loop {
         let f: f32 = 1.2;

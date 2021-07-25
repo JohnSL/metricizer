@@ -125,6 +125,14 @@ pub mod display {
             self.send_two(0x40, char as u8, delay)
         }
 
+        pub fn print(&mut self, s: &str, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
+            for c in s.chars() {
+                self.send_char(c, delay)?;
+            }
+
+            Ok(())
+        }
+
         // Send a command to the LCD display
         fn command(&mut self, value: u8, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
             self.send_two(0x80, value, delay)
