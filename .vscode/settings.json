@@ -1,4 +1,11 @@
 {
     "rust-analyzer.cargo.target": "thumbv7m-none-eabi",
-    "rust-analyzer.checkOnSave.allTargets": false
-}
+    "rust-analyzer.checkOnSave.allTargets": false,
+    "editor.semanticTokenColorCustomizations": {
+        "rules": {
+          "*.mutable": {
+            "fontStyle": "", // underline is the default
+          },
+        }
+      },
+    }
