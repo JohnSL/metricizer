@@ -1,6 +1,4 @@
 pub mod display {
-    use core::{fmt::Display, u8};
-
     use hal::{
         delay::Delay,
         prelude::*,
@@ -14,7 +12,6 @@ pub mod display {
     {
         i2c: I,
         show_function: u8,
-        show_mode: u8,
         control: DisplayControl,
     }
 
@@ -47,19 +44,23 @@ pub mod display {
         I: i2c::Write
         {
         pub fn new(i2c: I) -> Self {
-            let lcd = Lcd {
+            const LCD_4BITMODE: u8 = 0x00;
+            const LCD_2LINE: u8 = 0x08;
+            const LCD_5X8_DOTS: u8 = 0x00;
+
+            Lcd {
                 i2c: i2c,
                 show_function: LCD_4BITMODE | LCD_2LINE | LCD_5X8_DOTS,
-                show_mode: LCD_ENTRYLEFT | LCD_ENTRYSHIFTDECREMENT,
                 control: DisplayControl::new()
-            };
-            lcd
+            }
         }
 
         //
         // Initialize the display for the first time after power up
         //
         pub fn init(&mut self, delay: &mut Delay)  -> Result<(), <I as i2c::Write>::Error> {
+            const LCD_FUNCTIONSET: u8 = 0x20;
+
             delay.delay_ms(80_u16); // Need to wait at least 40ms before sending commands
 
             // Send the initial command sequence according to the HD44780 datasheet
@@ -71,15 +72,22 @@ pub mod display {
 
             self.command(LCD_FUNCTIONSET | self.show_function, delay)?;
 
-            // Turn on the display wit no cursor or blinking
-            self.control.set(ControlOptions::DisplayOn);
-            self.update_display(delay)?;
+            self.set_control_option(ControlOptions::DisplayOn, delay)?;
 
             self.clear(delay)?;
 
-            self.command(LCD_ENTRYMODESET | self.show_mode, delay)?;
+            // Display entry mode
+            const LCD_ENTRYLEFT: u8 = 0x02;
+            const LCD_ENTRYSHIFTDECREMENT: u8 = 0x00;
+            const LCD_ENTRYMODESET: u8 = 0x04;
+
+            self.command(LCD_ENTRYMODESET | LCD_ENTRYLEFT | LCD_ENTRYSHIFTDECREMENT, delay)?;
 
             // Initialize the backlight
+            const REG_MODE1: u8     = 0x00;
+            const REG_MODE2: u8     = 0x01;
+            const REG_OUTPUT: u8    = 0x08;
+        
             self.set_reg(REG_MODE1, 0)?;
 
             // Set the LEDs controllable by both PWM and GRPPWM registers
@@ -91,6 +99,8 @@ pub mod display {
 
         // Clear the display
         pub fn clear(&mut self, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
+            const LCD_CLEARDISPLAY: u8 = 0x01;
+
             let result = self.command(LCD_CLEARDISPLAY, delay);
             delay.delay_ms(2_u32);
             result
@@ -104,13 +114,11 @@ pub mod display {
 
         // Turns on the cursor, which is a non-blinking _
         pub fn cursor_on(&mut self, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
-            self.control.set(ControlOptions::CursorOn);
-            self.update_display(delay)
+            self.set_control_option(ControlOptions::CursorOn, delay)
         }
 
         pub fn blink_on(&mut self, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
-            self.control.set(ControlOptions::BlinkOn);
-            self.update_display(delay)
+            self.set_control_option(ControlOptions::BlinkOn, delay)
         }
 
         pub fn send_char(&mut self, char: char, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
@@ -134,12 +142,19 @@ pub mod display {
 
         // Set the color of the backlight
         fn set_rgb(&mut self, r: u8, g: u8, b: u8) -> Result<(), <I as i2c::Write>::Error> {
+            const REG_RED: u8       = 0x04;        // pwm2
+            const REG_GREEN: u8     = 0x03;        // pwm1
+            const REG_BLUE: u8      = 0x02;        // pwm0
+        
             self.set_reg(REG_RED, r)?;
             self.set_reg(REG_GREEN, g)?;
             self.set_reg(REG_BLUE, b)
         }
 
-        fn update_display(&mut self, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
+        fn set_control_option(&mut self, option: ControlOptions, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
+            const LCD_DISPLAYCONTROL: u8 = 0x08;
+
+            self.control.set(option);
             let value = self.control.value();
             self.command(LCD_DISPLAYCONTROL | value, delay)
         }
@@ -149,45 +164,11 @@ pub mod display {
     const LCD_ADDRESS: u8 = 0x7c >> 1;
     const RGB_ADDRESS: u8 = 0xc0 >> 1;
 
-    // Commands
-    const LCD_CLEARDISPLAY: u8 = 0x01;
-    const LCD_ENTRYMODESET: u8 = 0x04;
-    const LCD_DISPLAYCONTROL: u8 = 0x08;
-    const LCD_FUNCTIONSET: u8 = 0x20;
-
     // Flags for display on/off control
     #[repr(u8)]
     enum ControlOptions {
         DisplayOn = 0x04,
-        Off = 0x0,
         CursorOn = 0x02,
         BlinkOn = 0x01,
     }
-
-    const LCD_8BITMODE: u8 = 0x10;
-    const LCD_4BITMODE: u8 = 0x00;
-    const LCD_2LINE: u8 = 0x08;
-    const LCD_1LINE: u8 = 0x00;
-    const LCD_5X8_DOTS: u8 = 0x00;
-        
-    // Display entry mode
-    // const LCD_ENTRYRIGHT: u8 = 0x00;
-    const LCD_ENTRYLEFT: u8 = 0x02;
-    // const LCD_ENTRYSHIFTINCREMENT: u8 = 0x01;
-    const LCD_ENTRYSHIFTDECREMENT: u8 = 0x00;
-    
-    
-    // Colors
-    // const WHITE: u8         = 0;
-    // const RED: u8           = 1;
-    // const GREEN: u8         = 2;
-    // const BLUE: u8          = 3;
-
-    const REG_RED: u8       = 0x04;        // pwm2
-    const REG_GREEN: u8     = 0x03;        // pwm1
-    const REG_BLUE: u8      = 0x02;        // pwm0
-    
-    const REG_MODE1: u8     = 0x00;
-    const REG_MODE2: u8     = 0x01;
-    const REG_OUTPUT: u8    = 0x08;
-    }
+}
