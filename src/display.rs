@@ -1,11 +1,10 @@
 pub mod display {
-    use hal::{
-        delay::Delay,
-        prelude::*,
-    };
-    use stm32f1xx_hal as hal; // STM32F1 specific functions
-    use embedded_hal::blocking::i2c;
-    
+    use embedded_hal::blocking::{i2c, delay::DelayMs};
+
+    // pub trait LcdDisplay {
+    //     fn clear(&self) -> Result<(), nb::Error<i2c::Write::Error>>;
+    // }
+
     pub struct Lcd<I>
     where
         I: embedded_hal::blocking::i2c::Write,
@@ -58,17 +57,17 @@ pub mod display {
         //
         // Initialize the display for the first time after power up
         //
-        pub fn init(&mut self, delay: &mut Delay)  -> Result<(), <I as i2c::Write>::Error> {
+        pub fn init(&mut self, delay: &mut dyn DelayMs<u16>) -> Result<(), <I as i2c::Write>::Error> {
             const LCD_FUNCTIONSET: u8 = 0x20;
 
-            delay.delay_ms(80_u16); // Need to wait at least 40ms before sending commands
+            delay.delay_ms(80); // Need to wait at least 40ms before sending commands
 
             // Send the initial command sequence according to the HD44780 datasheet
             self.command(LCD_FUNCTIONSET | self.show_function, delay)?;
-            delay.delay_ms(5_u16);
+            delay.delay_ms(5);
 
             self.command(LCD_FUNCTIONSET | self.show_function, delay)?;
-            delay.delay_ms(5_u16);
+            delay.delay_ms(5);
 
             self.command(LCD_FUNCTIONSET | self.show_function, delay)?;
 
@@ -98,34 +97,34 @@ pub mod display {
         }
 
         // Clear the display
-        pub fn clear(&mut self, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
+        pub fn clear(&mut self, delay: &mut dyn DelayMs<u16>) -> Result<(), <I as i2c::Write>::Error> {
             const LCD_CLEARDISPLAY: u8 = 0x01;
 
             let result = self.command(LCD_CLEARDISPLAY, delay);
-            delay.delay_ms(2_u32);
+            delay.delay_ms(2);
             result
         }
 
         // Set the position of the cursor
-        pub fn cursor_position(&mut self, x: u8, y: u8, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
+        pub fn cursor_position(&mut self, x: u8, y: u8, delay: &mut dyn DelayMs<u16>) -> Result<(), <I as i2c::Write>::Error> {
             let col = if y == 0_u8 { x | 0x80 } else { x | 0xC0 };
             self.send_two(0x80, col, delay)
         }
 
         // Turns on the cursor, which is a non-blinking _
-        pub fn cursor_on(&mut self, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
+        pub fn cursor_on(&mut self, delay: &mut dyn DelayMs<u16>) -> Result<(), <I as i2c::Write>::Error> {
             self.set_control_option(ControlOptions::CursorOn, delay)
         }
 
-        pub fn blink_on(&mut self, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
+        pub fn blink_on(&mut self, delay: &mut dyn DelayMs<u16>) -> Result<(), <I as i2c::Write>::Error> {
             self.set_control_option(ControlOptions::BlinkOn, delay)
         }
 
-        pub fn send_char(&mut self, char: char, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
+        pub fn send_char(&mut self, char: char, delay: &mut dyn DelayMs<u16>) -> Result<(), <I as i2c::Write>::Error> {
             self.send_two(0x40, char as u8, delay)
         }
 
-        pub fn print(&mut self, s: &str, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
+        pub fn print(&mut self, s: &str, delay: &mut dyn DelayMs<u16>) -> Result<(), <I as i2c::Write>::Error> {
             for c in s.chars() {
                 self.send_char(c, delay)?;
             }
@@ -134,13 +133,13 @@ pub mod display {
         }
 
         // Send a command to the LCD display
-        fn command(&mut self, value: u8, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
+        fn command(&mut self, value: u8, delay: &mut dyn DelayMs<u16>) -> Result<(), <I as i2c::Write>::Error> {
             self.send_two(0x80, value, delay)
         }
 
-        fn send_two(&mut self, byte1: u8, byte2: u8, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
+        fn send_two(&mut self, byte1: u8, byte2: u8, delay: &mut dyn DelayMs<u16>) -> Result<(), <I as i2c::Write>::Error> {
             let result = self.i2c.write(LCD_ADDRESS, &[byte1, byte2]);
-            delay.delay_ms(5_u16);
+            delay.delay_ms(5);
             result
         }
 
@@ -159,7 +158,7 @@ pub mod display {
             self.set_reg(REG_BLUE, b)
         }
 
-        fn set_control_option(&mut self, option: ControlOptions, delay: &mut Delay) -> Result<(), <I as i2c::Write>::Error> {
+        fn set_control_option(&mut self, option: ControlOptions, delay: &mut dyn DelayMs<u16>) -> Result<(), <I as i2c::Write>::Error> {
             const LCD_DISPLAYCONTROL: u8 = 0x08;
 
             self.control.set(option);
