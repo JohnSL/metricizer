@@ -76,13 +76,14 @@ fn main() -> ! {
     );
 
     let mut lcd = Lcd::new(i2c_bus);
-    lcd.init(&mut delay);
-    lcd.cursor_on(&mut delay);
-    lcd.cursor_position(0, 0, &mut delay);
-    lcd.print(".01\"    0.254mm", &mut delay);
-    lcd.cursor_position(0, 1, &mut delay);
-    lcd.print(".01mm   .00039\"", &mut delay);
-    lcd.cursor_position(3, 0, &mut delay);
+    let result = lcd.init(&mut delay);
+    let resul2: Result<(), nb::Error<i2c::Error>> = lcd.init(&mut delay);
+    lcd.cursor_on();
+    lcd.cursor_position(0, 0);
+    lcd.print(".01\"    0.254mm");
+    lcd.cursor_position(0, 1);
+    lcd.print(".01mm   .00039\"");
+    lcd.cursor_position(3, 0);
 
     loop {
         let f: f32 = 1.2;
