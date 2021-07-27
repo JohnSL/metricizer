@@ -77,5 +77,27 @@ pub mod keypad {
             
             res
         }
+
+        // Converts the raw value from the read() method into a keypad digit. This will be
+        //      0..9    digits
+        //      -1      *
+        //      -2      #
+        pub fn convert(&mut self, value: u16) -> i16 {
+            match value {
+                1 => 1,
+                2 => 4,
+                4 => 7,
+                8 => -1,
+                16 => 2,
+                32 => 5,
+                64 => 8,
+                128 => 0,
+                256 => 3,
+                512 => 6,
+                1024 => 9,
+                2048 => -2,
+                _ => -10
+            }
+        }
     }
 }

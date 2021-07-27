@@ -2,10 +2,11 @@
 //!
 pub mod display {
     use embedded_hal::blocking::{i2c, delay::DelayMs};
+    extern crate heapless;
 
     pub struct Lcd<I>
     where
-        I: embedded_hal::blocking::i2c::Write,
+        I: i2c::Write,
     {
         i2c: I,
         show_function: u8,
