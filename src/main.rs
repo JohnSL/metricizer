@@ -91,6 +91,7 @@ mod metricizer {
     use crate::display::display::Lcd;
     use embedded_hal::blocking::{delay::DelayMs, i2c};
     use heapless::String;
+    use core::{fmt::Write};
 
     pub struct MainApp<I>
     where
@@ -98,6 +99,7 @@ mod metricizer {
     {
         lcd: Lcd<I>,
         entered: String<16>,
+        dot: bool,
     }
 
     impl<I> MainApp<I>
@@ -114,6 +116,7 @@ mod metricizer {
             let mut app = MainApp {
                 lcd: lcd,
                 entered: String::new(),
+                dot: false,
             };
             app.init(delay)?;
             Ok(app)
@@ -133,9 +136,13 @@ mod metricizer {
             match key {
                 '*' => {
                     self.entered.clear();
+                    self.dot = false;
                 }
                 '#' => {
-                    self.entered.push('.').unwrap();
+                    if !self.dot {
+                        self.entered.push('.').unwrap();
+                        self.dot = true;
+                    }
                 }
                 _ => {
                     // Allow only one zero to be entered. But also replace a loan zero with a digit
@@ -154,34 +161,69 @@ mod metricizer {
         }
 
         pub fn update(&mut self) -> Result<(), <I as i2c::Write>::Error> {
-            let f: String<10> = "12.3".parse().unwrap();
+            // let f: f32 = self.entered.parse().unwrap();
 
-            let mut line: String<16> = String::new();
-            line.push_str(&self.entered).unwrap();
+            let mut line1: String<16> = String::new();
+            let mut line2: String<16> = String::new();
+            let blank: bool;
+
+            line1.push_str(&self.entered).unwrap();
 
             let cursor = if self.entered.len() > 0 {
+                blank = false;
                 self.lcd.cursor_on()?;
                 self.entered.len() as u8
             } else {
+                blank = true;
                 self.lcd.cursor_off()?;
-                line.push('0').unwrap();
+                line1.push('0').unwrap();
                 0
             };
 
-            // line.clear();
-            // line.push_str(&line).unwrap();
+            line2.push_str(&line1).unwrap();
+            if !blank {
+                line1.push('"').unwrap();
+                line2.push_str("mm").unwrap();
+            }
 
+            pad(&mut line1, 8);
+            pad(&mut line2, 8);
+
+            let mut converted: String<8> = String::new();
+
+            let input: f32 = self.entered.parse().unwrap_or(-1.);
+            if input > 0. {
+                // Inches to mm
+                let _ = write!(converted, "{:7.4}", input * 25.4);
+                line1.push_str(&converted).unwrap_or(());
+                line1.push_str("m").unwrap_or(());
+
+                // mm to inches
+                converted.clear();
+                let _ = write!(converted, "{:7.4}", input / 25.4);
+                line2.push_str(&converted).unwrap_or(());
+                line2.push('"').unwrap_or(());
+            }
+
+            pad_line(&mut line1);
+            pad_line(&mut line2);
+
+            // Draw the inches to mm line
             self.lcd.cursor_position(0, 0)?;
-            // self.lcd.print(".01\"    0.254mm")?;
-            pad_line(&mut line);
-            self.lcd.print(&line)?;
+            self.lcd.print(&line1)?;
 
+            // Draw the mm to inches line
             self.lcd.cursor_position(0, 1)?;
-            pad_line(&mut line);
-            self.lcd.print(&line)?;
-            // self.lcd.print(".01mm   .00039\"")?;
+            self.lcd.print(&line2)?;
 
             self.lcd.cursor_position(cursor, 0)
+        }
+    }
+
+    // Adds spaces to the end of the line, which effectively clears the "right" side of the line.
+    fn pad(line: &mut String<16>, len: usize) {
+        for _ in 0..len - line.len() {
+            line.push(' ').unwrap();
         }
     }
 
