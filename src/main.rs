@@ -79,49 +79,41 @@ fn main() -> ! {
     app.clear().unwrap();
 
     loop {
-        let raw_key = keypad.read(&mut delay);
-        if raw_key != 0 {
-            let digit = keypad.convert(raw_key);
-            app.digit(digit).unwrap();
-            while keypad.read(&mut delay) != 0 {}
+        let key = keypad.read_char(&mut delay);
+        if key != ' ' {
+            app.key(key).unwrap();
+            while keypad.read_char(&mut delay) != ' ' {}
         }
     }
 }
 
 mod metricizer {
     use crate::display::display::Lcd;
-    use embedded_hal::blocking::{i2c, delay::DelayMs};
-    use core::{fmt::Write, u8};
+    use embedded_hal::blocking::{delay::DelayMs, i2c};
     use heapless::String;
 
-    const STAR_KEY: i16 = -1;
-    const HASH_KEY: i16 = -2;
-    
-        pub struct MainApp<I>
+    pub struct MainApp<I>
     where
-        I: i2c::Write
+        I: i2c::Write,
     {
         lcd: Lcd<I>,
-        line1: String<16>,
-        line2: String<16>,
-        input: f32,
-        found_dot: bool
-}
+        entered: String<16>,
+    }
 
     impl<I> MainApp<I>
     where
-        I: i2c::Write
+        I: i2c::Write,
     {
-        pub fn new(lcd: Lcd<I>, delay: &mut dyn DelayMs<u16>) -> Result<MainApp<I>, <I as i2c::Write>::Error>
+        pub fn new(
+            lcd: Lcd<I>,
+            delay: &mut dyn DelayMs<u16>,
+        ) -> Result<MainApp<I>, <I as i2c::Write>::Error>
         where
-            I: i2c::Write
+            I: i2c::Write,
         {
             let mut app = MainApp {
                 lcd: lcd,
-                line1: String::new(),
-                line2: String::new(),
-                input: 0.,
-                found_dot: false
+                entered: String::new(),
             };
             app.init(delay)?;
             Ok(app)
@@ -134,39 +126,59 @@ mod metricizer {
         }
 
         pub fn clear(&mut self) -> Result<(), <I as i2c::Write>::Error> {
-            self.digit(STAR_KEY)
+            self.key('*')
         }
 
-        pub fn digit(&mut self, digit: i16) -> Result<(), <I as i2c::Write>::Error> {
-
-            match digit {
-                STAR_KEY => self.input = 0.,
-                _ => self.input = 10. * self.input + digit as f32
+        pub fn key(&mut self, key: char) -> Result<(), <I as i2c::Write>::Error> {
+            match key {
+                '*' => {
+                    self.entered.clear();
+                }
+                '#' => {
+                    self.entered.push('.').unwrap();
+                }
+                _ => {
+                    // Allow only one zero to be entered. But also replace a loan zero with a digit
+                    // if that is the first key after a zero.
+                    if key != '0' && self.entered == "0" {
+                        self.entered.clear();
+                    }
+                    
+                    if key != '0' || self.entered != "0" {
+                        self.entered.push(key).unwrap();
+                    }
+                }
             }
+
             self.update()
         }
 
         pub fn update(&mut self) -> Result<(), <I as i2c::Write>::Error> {
-            // Add the value typed in so far to the line
-            self.line1.clear();
-            let _ = write!(self.line1, "{}", self.input);
-            let cursor = if self.input > 0. {
-                self.line1.len() as u8
+            let f: String<10> = "12.3".parse().unwrap();
+
+            let mut line: String<16> = String::new();
+            line.push_str(&self.entered).unwrap();
+
+            let cursor = if self.entered.len() > 0 {
+                self.lcd.cursor_on()?;
+                self.entered.len() as u8
             } else {
+                self.lcd.cursor_off()?;
+                line.push('0').unwrap();
                 0
             };
 
-            self.line2.clear();
-            self.line2.push_str(&self.line1).unwrap();
+            // line.clear();
+            // line.push_str(&line).unwrap();
 
             self.lcd.cursor_position(0, 0)?;
             // self.lcd.print(".01\"    0.254mm")?;
-            pad_line(&mut self.line1);
-            self.lcd.print(&self.line1)?;
+            pad_line(&mut line);
+            self.lcd.print(&line)?;
 
             self.lcd.cursor_position(0, 1)?;
-            pad_line(&mut self.line2);
-            self.lcd.print(&self.line2)?;
+            pad_line(&mut line);
+            self.lcd.print(&line)?;
             // self.lcd.print(".01mm   .00039\"")?;
 
             self.lcd.cursor_position(cursor, 0)
@@ -175,7 +187,7 @@ mod metricizer {
 
     // Adds spaces to the end of the line, which effectively clears the "right" side of the line.
     fn pad_line(line: &mut String<16>) {
-        for _ in 0..line.capacity()-line.len() {
+        for _ in 0..line.capacity() - line.len() {
             line.push(' ').unwrap();
         }
     }
