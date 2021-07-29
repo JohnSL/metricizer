@@ -115,6 +115,10 @@ pub mod display {
             self.set_control_option(ControlOptions::CursorOn)
         }
 
+        pub fn cursor_off(&mut self) -> Result<(), <I as i2c::Write>::Error> {
+            self.clear_control_option(ControlOptions::CursorOn)
+        }
+
         pub fn blink_on(&mut self) -> Result<(), <I as i2c::Write>::Error> {
             self.set_control_option(ControlOptions::BlinkOn)
         }
@@ -160,6 +164,14 @@ pub mod display {
             const LCD_DISPLAYCONTROL: u8 = 0x08;
 
             self.control.set(option);
+            let value = self.control.value();
+            self.command(LCD_DISPLAYCONTROL | value)
+        }
+
+        fn clear_control_option(&mut self, option: ControlOptions) -> Result<(), <I as i2c::Write>::Error> {
+            const LCD_DISPLAYCONTROL: u8 = 0x08;
+
+            self.control.clear(option);
             let value = self.control.value();
             self.command(LCD_DISPLAYCONTROL | value)
         }
