@@ -16,8 +16,7 @@ use stm32f1xx_hal as hal; // STM32F1 specific functions
 mod keypad;
 use keypad::keypad::MyKeypad;
 
-mod display;
-use display::display::Lcd;
+use lcd_1602_i2c::Lcd;
 
 #[allow(unused_imports)]
 // use panic_halt; // When a panic occurs, stop the microcontroller
@@ -88,7 +87,7 @@ fn main() -> ! {
 }
 
 mod metricizer {
-    use crate::display::display::Lcd;
+    use lcd_1602_i2c::Lcd;
     use embedded_hal::blocking::{delay::DelayMs, i2c};
     use heapless::String;
     use core::{fmt::Write};
@@ -106,12 +105,13 @@ mod metricizer {
     where
         I: i2c::Write,
     {
-        pub fn new(
+        pub fn new<D>(
             lcd: Lcd<I>,
-            delay: &mut dyn DelayMs<u16>,
+            delay: &mut D,
         ) -> Result<MainApp<I>, <I as i2c::Write>::Error>
         where
             I: i2c::Write,
+            D: DelayMs<u16>,
         {
             let mut app = MainApp {
                 lcd: lcd,
@@ -122,7 +122,9 @@ mod metricizer {
             Ok(app)
         }
 
-        fn init(&mut self, delay: &mut dyn DelayMs<u16>) -> Result<(), <I as i2c::Write>::Error> {
+        fn init<D>(&mut self, delay: &mut D) -> Result<(), <I as i2c::Write>::Error>
+        where D: DelayMs<u16>
+        {
             self.lcd.init(delay)?;
             self.lcd.init(delay)?;
             self.lcd.cursor_on()

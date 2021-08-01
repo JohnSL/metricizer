@@ -1,5 +1,5 @@
 [package]
-name = "rusty-blink"
+name = "metricizer"
 version = "0.1.0"
 edition = "2018"
 
@@ -17,6 +17,7 @@ panic-halt = "^0.2.0"    # Panic handler
 panic-semihosting = "0.5.6"
 nb = "^1.0.0"
 heapless = "0.7.3"
+lcd_1602_i2c = { path = "../lcd_1602_i2c" }
 
 # Access to the stm32f103 HAL.
 [dependencies.stm32f1xx-hal]
