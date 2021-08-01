@@ -73,8 +73,8 @@ fn main() -> ! {
         1000,
     );
 
-    let lcd = Lcd::new(i2c_bus);
-    let mut app = metricizer::MainApp::new(lcd, &mut delay).unwrap();
+    let lcd = Lcd::new(i2c_bus, &mut delay).unwrap();
+    let mut app = metricizer::MainApp::new(lcd).unwrap();
     app.clear().unwrap();
 
     loop {
@@ -88,7 +88,7 @@ fn main() -> ! {
 
 mod metricizer {
     use lcd_1602_i2c::Lcd;
-    use embedded_hal::blocking::{delay::DelayMs, i2c};
+    use embedded_hal::blocking::i2c;
     use heapless::String;
     use core::{fmt::Write};
 
@@ -105,28 +105,20 @@ mod metricizer {
     where
         I: i2c::Write,
     {
-        pub fn new<D>(
-            lcd: Lcd<I>,
-            delay: &mut D,
-        ) -> Result<MainApp<I>, <I as i2c::Write>::Error>
+        pub fn new(lcd: Lcd<I>) -> Result<MainApp<I>, <I as i2c::Write>::Error>
         where
             I: i2c::Write,
-            D: DelayMs<u16>,
         {
             let mut app = MainApp {
                 lcd: lcd,
                 entered: String::new(),
                 dot: false,
             };
-            app.init(delay)?;
+            app.init()?;
             Ok(app)
         }
 
-        fn init<D>(&mut self, delay: &mut D) -> Result<(), <I as i2c::Write>::Error>
-        where D: DelayMs<u16>
-        {
-            self.lcd.init(delay)?;
-            self.lcd.init(delay)?;
+        fn init(&mut self) -> Result<(), <I as i2c::Write>::Error> {
             self.lcd.cursor_on()
         }
 
