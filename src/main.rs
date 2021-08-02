@@ -12,9 +12,7 @@ use hal::{
     prelude::*,
 };
 use stm32f1xx_hal as hal; // STM32F1 specific functions
-
-mod keypad;
-use keypad::keypad::MyKeypad;
+use keypad2::Keypad;
 
 mod metricizer;
 
@@ -64,7 +62,7 @@ fn main() -> ! {
         gpioc.pc7.into_open_drain_output(&mut gpioc.crl),
     );
 
-    let mut keypad = MyKeypad::new(rows, cols);
+    let mut keypad = Keypad::new(rows, cols);
 
     // Now setup the LCD display
     let scl = gpiob.pb10.into_alternate_open_drain(&mut gpiob.crh);
