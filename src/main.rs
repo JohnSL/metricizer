@@ -42,6 +42,15 @@ fn main() -> ! {
     let mut delay = Delay::new(core_peripherals.SYST, clocks);
 
     // Set up the keypad
+    // Pin      Keypad              Keypad  Pin
+    // ----     ------              ------  ---
+    // PA7      R2                  R1      PB15
+    // PB6      R3                  R2      PA7
+    // PC7      C3                  R3      PB6
+    // PA9      R4                  R4      PA9
+    // PA8      C1                  C1      PA8
+    // PB15     R1                  C2      PB5
+    // PB5      C2                  C3      PC7
     let rows = (
         gpiob.pb15.into_pull_up_input(&mut gpiob.crh),
         gpioa.pa7.into_pull_up_input(&mut gpioa.crl),
@@ -75,7 +84,7 @@ fn main() -> ! {
         1000,
     );
 
-    let lcd = Lcd::new(i2c_bus, &mut delay).unwrap();
+    let lcd = Lcd::new(i2c_bus, LCD_ADDRESS, RGB_ADDRESS, &mut delay).unwrap();
     let mut app = metricizer::MainApp::new(lcd).unwrap();
     app.clear().unwrap();
 
@@ -87,3 +96,7 @@ fn main() -> ! {
         }
     }
 }
+
+// Device I2c addresses
+const LCD_ADDRESS: u8 = 0x7c >> 1;
+const RGB_ADDRESS: u8 = 0xc0 >> 1;
