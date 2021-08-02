@@ -14,7 +14,7 @@ use hal::{
 use stm32f1xx_hal as hal; // STM32F1 specific functions
 use keypad2::Keypad;
 
-mod metricizer;
+mod app;
 
 use lcd_1602_i2c::Lcd;
 
@@ -83,7 +83,7 @@ fn main() -> ! {
     );
 
     let lcd = Lcd::new(i2c_bus, LCD_ADDRESS, RGB_ADDRESS, &mut delay).unwrap();
-    let mut app = metricizer::MainApp::new(lcd).unwrap();
+    let mut app = app::MainApp::new(lcd).unwrap();
     app.clear().unwrap();
 
     loop {
