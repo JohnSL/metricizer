@@ -1,7 +1,7 @@
-use lcd_1602_i2c::Lcd;
+use core::fmt::Write;
 use embedded_hal::blocking::i2c;
 use heapless::String;
-use core::{fmt::Write};
+use lcd_1602_i2c::Lcd;
 
 pub struct MainApp<I>
 where
@@ -56,7 +56,7 @@ where
                 if key != '0' && self.entered == "0" {
                     self.entered.clear();
                 }
-                
+
                 if key != '0' || self.entered != "0" {
                     self.entered.push(key).unwrap();
                 }
@@ -67,52 +67,33 @@ where
     }
 
     pub fn update(&mut self) -> Result<(), <I as i2c::Write>::Error> {
-        // let f: f32 = self.entered.parse().unwrap();
-
         let mut line1: String<16> = String::new();
         let mut line2: String<16> = String::new();
-        let blank: bool;
 
         line1.push_str(&self.entered).unwrap();
 
         let cursor = if self.entered.len() > 0 {
-            blank = false;
             self.lcd.cursor_on()?;
             self.entered.len() as u8
         } else {
-            blank = true;
             self.lcd.cursor_off()?;
-            line1.push('0').unwrap();
             0
         };
 
-        line2.push_str(&line1).unwrap();
-        if !blank {
-            line1.push('"').unwrap();
-            line2.push_str("mm").unwrap();
-        }
-
-        pad(&mut line1, 8);
-        pad(&mut line2, 8);
-
-        let mut converted: String<8> = String::new();
+        self.add_input(&mut line1, &self.entered, "\"");
+        self.add_input(&mut line2, &self.entered, "mm");
 
         let input: f32 = self.entered.parse().unwrap_or(-1.);
         if input > 0. {
             // Inches to mm
-            let _ = write!(converted, "{:7.4}", input * 25.4);
-            line1.push_str(&converted).unwrap_or(());
-            line1.push_str("m").unwrap_or(());
+            self.add_number(&mut line1, input * 25.4, "mm");
 
             // mm to inches
-            converted.clear();
-            let _ = write!(converted, "{:7.4}", input / 25.4);
-            line2.push_str(&converted).unwrap_or(());
-            line2.push('"').unwrap_or(());
+            self.add_number(&mut line2, input / 25.4, "\"");
+        } else {
+            write!(&mut line1, "{:16}", " ").unwrap_or_default();
+            write!(&mut line2, "{:16}", " ").unwrap_or_default();
         }
-
-        pad_line(&mut line1);
-        pad_line(&mut line2);
 
         // Draw the inches to mm line
         self.lcd.cursor_position(0, 0)?;
@@ -124,18 +105,21 @@ where
 
         self.lcd.cursor_position(cursor, 0)
     }
-}
 
-// Adds spaces to the end of the line, which effectively clears the "right" side of the line.
-fn pad(line: &mut String<16>, len: usize) {
-    for _ in 0..len - line.len() {
-        line.push(' ').unwrap();
+    fn add_input(&self, line: &mut String<16>, input: &String<16>, suffix: &str) {
+        line.clear();
+
+        if input.len() == 0 {
+            write!(line, "{:8}", "0").unwrap_or_default();
+        } else {
+            let mut number: String<8> = String::new();
+            number.push_str(&input).unwrap_or_default();
+            number.push_str(&suffix).unwrap_or_default();
+            write!(line, "{:7}", number).unwrap_or_default();
+        }
     }
-}
 
-// Adds spaces to the end of the line, which effectively clears the "right" side of the line.
-fn pad_line(line: &mut String<16>) {
-    for _ in 0..line.capacity() - line.len() {
-        line.push(' ').unwrap();
+    fn add_number(&self, line: &mut String<16>, number: f32, suffix: &str) {
+        let _ = write!(line, "{:7.4}{}", number, suffix);
     }
 }

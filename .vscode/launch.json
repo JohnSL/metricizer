@@ -9,7 +9,7 @@
             "request": "launch",
             "servertype": "openocd",
             "cwd": "${workspaceRoot}",
-            "executable": "./target/thumbv7m-none-eabi/debug/rusty-blink",
+            "executable": "./target/thumbv7m-none-eabi/debug/metricizer",
             "name": "Debug (OpenOCD)",
             "device": "STM32F103RBT6",
             "configFiles": [
