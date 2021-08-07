@@ -22,6 +22,12 @@
           "$rustc"
         ],
         "label": "rust: cargo clippy"
+      },
+      {
+        "type": "cargo",
+        "command": "flash",
+        "args": ["--chip", "stm32f103rb"],
+        "label": "rust: flash"
       }
     ]
   }
